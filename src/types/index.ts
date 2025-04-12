@@ -1,3 +1,4 @@
+// Тип данных о товаре
 export interface IProduct {
 	id: string;
 	description: string;
@@ -5,77 +6,86 @@ export interface IProduct {
 	title: string;
 	category: string;
 	price: number | null;
-}
-
-export interface IOrder {
+  }
+  
+  // Заказ, оформляемый пользователем
+  export interface IOrder {
 	payment: string;
 	email: string;
 	phone: string;
 	address: string;
 	total: number;
 	items: string[];
-}
-
-export interface IOrderResult {
+  }
+  
+  // Результат успешно оформленного заказа
+  export interface IOrderResult {
 	id: string;
 	total: number;
-}
-
-export interface IModalData {
+  }
+  
+  // Данные, передаваемые в модальное окно
+  export interface IModalData {
 	content: HTMLElement;
-}
-
-export interface IFormState {
+  }
+  
+  // Общее состояние формы
+  export interface IFormState {
 	errors: string[];
 	valid: boolean;
-}
-
-export interface IProductItem extends IProduct {
+  }
+  
+  // Товар с дополнительным флагом, добавлен ли в корзину
+  export interface IProductItem extends IProduct {
 	basketState: boolean;
-}
-
-export interface IAppSateData {
+  }
+  
+  // Общие данные состояния приложения
+  export interface IAppStateData {
 	products: IProductItem[];
 	basket: IProductItem[];
 	order: IOrder;
-}
-
-export interface IPageData {
+  }
+  
+  // Данные для главной страницы
+  export interface IPageData {
 	counter: number;
 	gallery: HTMLElement[];
 	locked: boolean;
-}
-
-export interface ICardData extends IProduct {
-	buttonLable: boolean;
+  }
+  
+  // Карточка товара
+  export interface ICardData extends IProduct {
+	buttonLabel: boolean;
 	index?: number;
-}
-
-export interface ICardAction {
+  }
+  
+  // Обработчики карточки
+  export interface ICardAction {
 	onClick?: () => void;
-}
-
-export interface IBasketData {
+  }
+  
+  // Данные корзины
+  export interface IBasketData {
 	items: HTMLElement[];
 	total: number;
-}
-
-export interface IOrderForm {
-	payment: string;
-	address: string;
-}
-
-export interface IContactsForm {
+  }
+  
+  // Данные формы контактов
+  export interface IContactsForm {
 	email: string;
 	phone: string;
-}
-
-export type FormErrors = Partial<Record<keyof IOrder, string>>;
-
-export interface ISuccessData {
+  }
+  
+  // Ошибки формы, ключи соответствуют полям заказа
+  export type FormErrors = Partial<Record<keyof IOrder, string>>;
+  
+  // Данные успешного заказа
+  export interface ISuccessData {
 	description: number;
-}
-
-export interface ISuccesssAction {
+  }
+  
+  // Действия для окна успешного заказа
+  export interface ISuccessAction {
 	onClick: () => void;
-}
+  }

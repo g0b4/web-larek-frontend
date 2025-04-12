@@ -1,8 +1,8 @@
-import { IContactsForm } from "../types";
-import { IEvents } from "./base/events";
-import { Form } from "./common/Form";
+import { IContactsForm } from '../types';
+import { IEvents } from '../core/EventBus';
+import { Form } from '../core/Form';
 
-export class Contacts extends Form<IContactsForm> {
+export class ContactForm extends Form<IContactsForm> {
   protected _email: HTMLInputElement;
   protected _phone: HTMLInputElement;
 

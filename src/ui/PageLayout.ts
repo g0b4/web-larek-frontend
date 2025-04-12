@@ -3,7 +3,7 @@ import { ensureElement } from "../utils/domHelpers";
 import { Component } from "../core/Component";
 import { IEvents } from "../core/EventBus";
 
-export class Page extends Component<IPageData> {
+export class PageLayout extends Component<IPageData> {
   protected _counter: HTMLSpanElement;
   protected _buttonBasket: HTMLButtonElement;
   protected _gallery: HTMLElement;
@@ -21,11 +21,11 @@ export class Page extends Component<IPageData> {
     this._wrapper = ensureElement<HTMLElement>('.page__wrapper', container);
 
     this._buttonBasket.addEventListener('click', () => {
-      this.events.emit('basket:open');
+      this.events.emit('cart:view'); // исправлено на cart:view для согласованности
     });
   }
 
-  set counter(value:number) {
+  set counter(value: number) {
     this.setText(this._counter, value.toString());
   }
 
@@ -34,10 +34,23 @@ export class Page extends Component<IPageData> {
   }
 
   set locked(value: boolean) {
-    if (value === true) {
-      this._wrapper.classList.add('page__wrapper_locked');
-    } else {
-      this._wrapper.classList.remove('page__wrapper_locked');
-    }
+    this._locked = value;
+    this._wrapper.classList.toggle('page__wrapper_locked', value);
+  }
+
+  lockScroll() {
+    this.locked = true;
+  }
+
+  unlockScroll() {
+    this.locked = false;
+  }
+
+  updateCartIndicator(count: number) {
+    this.counter = count;
+  }
+
+  renderProducts(products: HTMLElement[]) {
+    this.gallery = products;
   }
 }

@@ -1,9 +1,9 @@
-import { IModalData } from "../../types";
-import { ensureElement } from "../../utils/utils";
-import { Component } from "../base/Component";
-import { IEvents } from "../base/events";
+import { IModalData } from "../types/index";
+import { ensureElement } from "../utils/domHelpers";
+import { Component } from "../core/Component";
+import { IEvents } from "../core/EventBus";
 
-export class Modal extends Component<IModalData> {
+export class PopupManager extends Component<IModalData> {
   protected _button: HTMLButtonElement;
   protected _content: HTMLElement;
   protected events: IEvents;
@@ -23,27 +23,35 @@ export class Modal extends Component<IModalData> {
       if (evt.target === evt.currentTarget) {
         this.close();
       }
-    })
+    });
   }
 
-  set content(content: HTMLElement) {
-    this._content.replaceChildren(content);
+  set content(content: HTMLElement | null) {
+    this._content.replaceChildren(...(content ? [content] : []));
   }
 
   open() {
     this.container.classList.add('modal_active');
-    this.events.emit('modal:open');
+    this.events.emit('popup:show'); 
   }
 
   close() {
     this.container.classList.remove('modal_active');
     this.content = null;
-    this.events.emit('modal:close');
+    this.events.emit('popup:hide');
+  }
+
+  show(data: IModalData) {
+    this.content = data.content;
+    this.open();
+  }
+
+  hide() {
+    this.close();
   }
 
   render(data: IModalData): HTMLElement {
-    super.render(data);
-    this.open();
+    this.show(data);
     return this.container;
   }
 }

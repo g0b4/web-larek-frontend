@@ -1,5 +1,5 @@
 import { IOrder, IOrderResult, IProduct } from '../types';
-import { Api, ApiListResponse } from './base/api';
+import { Api, ApiListResponse } from '../core/api';
 
 export interface IApiShop {
 	getItemList: () => Promise<IProduct[]>;
@@ -7,16 +7,16 @@ export interface IApiShop {
 	orderProduct: (order: IOrder) => Promise<IOrderResult>;
 }
 
-export class ApiShop extends Api implements IApiShop {
-	readonly cdnUrl: string;
+export class ShopApiClient extends Api implements IApiShop {
+	protected cdnUrl: string;
 
-	constructor(cdnUrl: string, baseUrl: string, options?: RequestInit) {
-		super(baseUrl, options);
+	constructor(cdnUrl: string, apiUrl: string) {
+		super(apiUrl); 
 		this.cdnUrl = cdnUrl;
 	}
 
 	getItemList(): Promise<IProduct[]> {
-		return this.get('/product').then((data: ApiListResponse<IProduct>) =>
+		return this.get<ApiListResponse<IProduct>>('/product').then((data) =>
 			data.items.map((item) => ({
 				...item,
 				image: this.cdnUrl + item.image,
@@ -25,13 +25,13 @@ export class ApiShop extends Api implements IApiShop {
 	}
 
 	getItem(id: string): Promise<IProduct> {
-		return this.get(`/product/${id}`).then((item: IProduct) => ({
+		return this.get<IProduct>(`/product/${id}`).then((item) => ({
 			...item,
 			image: this.cdnUrl + item.image,
 		}));
 	}
 
 	orderProduct(order: IOrder): Promise<IOrderResult> {
-		return this.post('/order', order).then((data: IOrderResult) => data);
+		return this.post<IOrderResult>('/order', order);
 	}
 }
