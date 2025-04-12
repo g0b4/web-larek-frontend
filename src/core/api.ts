@@ -2,7 +2,7 @@ import {
 	IProductData,
 	IOrderForm,
 	IOrderConfirmation,
-  } from '../types/models'; 
+  } from '../types/models';
   
   export type ApiListResponse<Type> = {
 	total: number;
@@ -60,4 +60,4 @@ import {
 	}
   }
   
-  export const apiClient = new Api('http://localhost:8080');
+  export const apiClient = new Api(process.env.API_ORIGIN || 'https://larek-api.nomoreparties.co');
