@@ -1,44 +1,40 @@
 import { IProductItem } from '../../types';
-import { categoryClassMap } from '../../utils/categoryClassMap';
-import { resolveImageUrl } from '../../utils/resolveImageUrl';
-import { bem, ensureElement } from '../../utils/utils';
-import { cartStore } from '../cartStore';
-import { BaseComponent } from './BaseComponent';
+import { IAppState } from '../../types/IAppState';
+import { ensureElement } from '../../utils/utils';
+import { ProductCard } from './ProductCard';
 
-export class ProductPreviewCard extends BaseComponent {
-	value?: IProductItem;
-	refresh() {
-		const buttonText = cartStore.get(this.value.id)
-			? 'Удалить из корзины'
-			: 'В корзину';
-		this.element.querySelector('.card__button').textContent = buttonText;
+export class ProductPreviewCard extends ProductCard {
+	protected cardButton: HTMLButtonElement;
+	protected cardTextElement: HTMLElement;
+	constructor(appState: IAppState, value: IProductItem) {
+		super(ensureElement<HTMLTemplateElement>('#card-preview'), appState, value);
+		this.categoryTitleElement.classList.remove('card__category_other');
+		this.cardTextElement = ensureElement('.card__text', this.element);
+		this.cardButton = ensureElement<HTMLButtonElement>(
+			'.card__button',
+			this.element
+		);
+		this.cardButton.addEventListener('click', () => {
+			if (this.appState.isInCart(this.appState.currentProduct)) {
+				this.appState.removeFromCart(this.appState.currentProduct);
+			} else {
+				this.appState.addToCart(this.appState.currentProduct);
+			}
+			this.update();
+		});
+		this.appState.eventEmitter.on('current-product-updated', () => {
+			this.update();
+		});
+		this.update();
 	}
-	constructor(value: IProductItem) {
-		super();
-		this.value = value;
-		this.setTemplate(ensureElement<HTMLTemplateElement>('#card-preview'));
 
-		this.refresh();
-		this.element.querySelector('.card__category').textContent = value.category;
-		this.element
-			.querySelector('.card__category')
-			.classList.add(
-				bem('card', 'category', categoryClassMap[value.category]).name
-			);
-		this.element.querySelector('.card__title').textContent = value.title;
-		this.element.querySelector<HTMLImageElement>('.card__image').src =
-			resolveImageUrl(value.image);
-		this.element.querySelector('.card__price').textContent =
-			Intl.NumberFormat('ru-RU').format(value.price) + ' синапсов';
-
-		this.element
-			.querySelector('.card__button')
-			.addEventListener('click', () => {
-				cartStore.get(value.id)
-					? cartStore.delete(value.id)
-					: cartStore.set(value.id, value);
-				this.eventEmitter.emit('update-cart')
-				this.refresh();
-			});
+	update() {
+		super.update();
+		this.cardTextElement.textContent = this.appState.currentProduct.description;
+		this.cardButton.textContent = this.appState.isInCart(
+			this.appState.currentProduct
+		)
+			? 'Удалить из корзины'
+			: 'Добавить в корзину';
 	}
 }
