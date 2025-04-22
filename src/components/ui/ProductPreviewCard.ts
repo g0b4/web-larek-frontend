@@ -1,13 +1,16 @@
 import { IProductItem } from '../../types';
-import { IAppState } from '../../types/IAppState';
+import { IEventEmitter } from '../../types/IEventEmitter';
 import { ensureElement } from '../../utils/utils';
-import { ProductCard } from './ProductCard';
+import { ProductWithImageCard } from './ProductWithImageCard';
 
-export class ProductPreviewCard extends ProductCard {
+export class ProductPreviewCard extends ProductWithImageCard {
 	protected cardButton: HTMLButtonElement;
 	protected cardTextElement: HTMLElement;
-	constructor(appState: IAppState, value: IProductItem) {
-		super(ensureElement<HTMLTemplateElement>('#card-preview'), appState, value);
+	protected modalContainer: HTMLElement;
+
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
+		this.modalContainer = ensureElement('#modal-container', document.body);
 		this.categoryTitleElement.classList.remove('card__category_other');
 		this.cardTextElement = ensureElement('.card__text', this.element);
 		this.cardButton = ensureElement<HTMLButtonElement>(
@@ -15,25 +18,18 @@ export class ProductPreviewCard extends ProductCard {
 			this.element
 		);
 		this.cardButton.addEventListener('click', () => {
-			if (this.appState.isInCart(this.appState.currentProduct)) {
-				this.appState.removeFromCart(this.appState.currentProduct);
-			} else {
-				this.appState.addToCart(this.appState.currentProduct);
-			}
-			this.update();
+			this.eventEmitter.emit('select-product');
 		});
-		this.appState.eventEmitter.on('current-product-updated', () => {
-			this.update();
-		});
-		this.update();
 	}
 
-	update() {
-		super.update();
-		this.cardTextElement.textContent = this.appState.currentProduct.description;
-		this.cardButton.textContent = this.appState.isInCart(
-			this.appState.currentProduct
-		)
+	update(value: IProductItem, isInCart?: boolean) {
+		super.update(value);
+		this.cardTextElement.textContent = value.description;
+		this.updateButtonText(isInCart);
+	}
+
+	updateButtonText(isInCart: boolean) {
+		this.cardButton.textContent = isInCart
 			? 'Удалить из корзины'
 			: 'Добавить в корзину';
 	}

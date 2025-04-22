@@ -1,5 +1,5 @@
-import { IAppState } from '../../types/IAppState';
-import { cloneTemplate, ensureElement } from '../../utils/utils';
+import { IEventEmitter } from '../../types/IEventEmitter';
+import { ensureElement } from '../../utils/utils';
 import { Component } from './Component';
 
 export class ContactsFormComponent extends Component {
@@ -8,11 +8,8 @@ export class ContactsFormComponent extends Component {
 	phoneInput: HTMLInputElement;
 	errorsElement: HTMLElement;
 
-	constructor(appState: IAppState) {
-		super(
-			cloneTemplate(ensureElement<HTMLTemplateElement>('#contacts')),
-			appState
-		);
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
 
 		this.submitButton = ensureElement<HTMLButtonElement>(
 			'button[type="submit"]',
@@ -27,11 +24,17 @@ export class ContactsFormComponent extends Component {
 			this.element
 		);
 
-		this.emailInput.addEventListener('input', () => {
-			this.appState.order.updateField('email', this.emailInput.value);
+		this.emailInput.addEventListener('input', (e) => {
+			this.eventEmitter.emit('order-field:input', {
+				field: 'email',
+				value: (e.target as HTMLInputElement).value,
+			});
 		});
-		this.phoneInput.addEventListener('input', () => {
-			this.appState.order.updateField('phone', this.phoneInput.value);
+		this.phoneInput.addEventListener('input', (e) => {
+			this.eventEmitter.emit('order-field:input', {
+				field: 'phone',
+				value: (e.target as HTMLInputElement).value,
+			});
 		});
 
 		this.errorsElement = ensureElement<HTMLElement>(
@@ -41,28 +44,22 @@ export class ContactsFormComponent extends Component {
 
 		this.submitButton.addEventListener('click', (e) => {
 			e.preventDefault();
-			this.appState.submitOrder();
+			this.eventEmitter.emit('submit:contacts');
 		});
-		this.appState.order.eventEmitter.on('updated', () => {
-			this.update();
-		});
-		this.update();
 	}
 
-	update() {
-		this.emailInput.value = this.appState.order.value.email;
-		this.phoneInput.value = this.appState.order.value.phone;
-
-		if (this.appState.order.validateContacts()) {
-			this.submitButton.disabled = false;
-		} else {
-			this.submitButton.disabled = true;
-		}
-		this.errorsElement.innerHTML = '';
-		if (this.appState.order.errors) {
-			this.errorsElement.innerHTML = this.appState.order.errors
-				.map((error) => `<p>${error}</p>`)
-				.join('');
-		}
+	updatePhone(value: string) {
+		this.emailInput.value = value;
+	}
+	updateEmail(value: string) {
+		this.phoneInput.value = value;
+	}
+	updateSubmitButtonState({ disabled }: { disabled: boolean }) {
+		this.submitButton.disabled = disabled;
+	}
+	updateErrors(errors: string[]) {
+		this.errorsElement.innerHTML = errors
+			.map((error) => `<p>${error}</p>`)
+			.join('');
 	}
 }

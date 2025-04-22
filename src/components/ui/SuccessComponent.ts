@@ -1,16 +1,13 @@
-import { IAppState } from '../../types/IAppState';
-import { cloneTemplate, ensureElement } from '../../utils/utils';
+import { IEventEmitter } from '../../types/IEventEmitter';
+import { ensureElement } from '../../utils/utils';
 import { Component } from './Component';
 
 export class SuccessComponent extends Component {
 	protected descriptionElement: HTMLElement;
 	protected closeButton: HTMLElement;
 
-	constructor(appState: IAppState) {
-		super(
-			cloneTemplate(ensureElement<HTMLTemplateElement>('#success')),
-			appState
-		);
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
 
 		this.descriptionElement = ensureElement(
 			'.order-success__description',
@@ -18,15 +15,11 @@ export class SuccessComponent extends Component {
 		);
 		this.closeButton = ensureElement('.order-success__close', this.element);
 		this.closeButton.addEventListener('click', () => {
-			appState.closeSuccess();
+			this.eventEmitter.emit('close-success');
 		});
-		this.appState.eventEmitter.on('after-submit', () => {
-			this.update();
-		});
-		this.update();
 	}
 
-	update() {
-		this.descriptionElement.textContent = `Списано ${this.appState.lastOrderTotal} синапсов`;
+	updateTotal(value: number) {
+		this.descriptionElement.textContent = `Списано ${value} синапсов`;
 	}
 }

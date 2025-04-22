@@ -1,4 +1,4 @@
-import { IAppState } from '../../types/IAppState';
+import { IEventEmitter } from '../../types/IEventEmitter';
 import { ensureAllElements, ensureElement } from '../../utils/utils';
 import { Component } from './Component';
 
@@ -6,8 +6,8 @@ export class PageComponent extends Component {
 	private cartCounterElement: HTMLElement;
 	private headerBasketButton: HTMLButtonElement;
 
-	constructor(element: HTMLElement, appState: IAppState) {
-		super(element, appState);
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
 
 		this.cartCounterElement = ensureElement(
 			'.header__basket-counter',
@@ -21,15 +21,15 @@ export class PageComponent extends Component {
 			modal.classList.remove('modal_active');
 		});
 		this.headerBasketButton.addEventListener('click', () => {
-			this.appState.openBasket();
+			// this.appState.openBasket();
+			this.eventEmitter.emit('open-basket');
 		});
-		this.appState.order.eventEmitter.on('updated:total', () => {
-			this.update();
-		});
+		// this.appState.order.eventEmitter.on('updated:total', () => {
+		// 	this.update();
+		// });
 	}
 
-	update() {
-		this.cartCounterElement.textContent =
-			this.appState.order.value.items.length.toString();
+	updateCounter(value: number) {
+		this.cartCounterElement.textContent = value.toString();
 	}
 }

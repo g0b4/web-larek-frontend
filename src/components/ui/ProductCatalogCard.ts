@@ -1,15 +1,19 @@
-import { IAppState } from '../../types/IAppState';
-import { ProductCard } from './ProductCard';
 import { IProductItem } from '../../types';
-import { ensureElement } from '../../utils/utils';
+import { IEventEmitter } from '../../types/IEventEmitter';
+import { ProductWithImageCard } from './ProductWithImageCard';
 
-export class ProductCatalogCard extends ProductCard {
-	constructor(appState: IAppState, value: IProductItem) {
-		super(ensureElement<HTMLTemplateElement>('#card-catalog'), appState, value);
+export class ProductCatalogCard extends ProductWithImageCard {
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
 
 		this.element.addEventListener('click', () => {
-			this.appState.setCurrentProduct(this.value);
+			eventEmitter.emit('open-product', {
+				id: this.id,
+			});
 		});
-		this.update();
+	}
+
+	update(value: IProductItem): void {
+		super.update(value);
 	}
 }

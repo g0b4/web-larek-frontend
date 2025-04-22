@@ -1,11 +1,11 @@
-import { IAppState } from '../../types/IAppState';
+import { IEventEmitter } from '../../types/IEventEmitter';
 
 export abstract class Component {
-	protected appState: IAppState;
 	protected element: HTMLElement;
-	constructor(element: HTMLElement, appState: IAppState) {
+	protected eventEmitter: IEventEmitter;
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
 		this.element = element;
-		this.appState = appState;
+		this.eventEmitter = eventEmitter;
 	}
 	getElement() {
 		return this.element;

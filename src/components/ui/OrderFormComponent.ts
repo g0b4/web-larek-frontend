@@ -1,5 +1,5 @@
-import { IAppState } from '../../types/IAppState';
-import { cloneTemplate, ensureElement } from '../../utils/utils';
+import { IEventEmitter } from '../../types/IEventEmitter';
+import { ensureElement } from '../../utils/utils';
 import { Component } from './Component';
 
 export class OrderFormComponent extends Component {
@@ -7,12 +7,10 @@ export class OrderFormComponent extends Component {
 	cardButton: HTMLButtonElement;
 	submitButton: HTMLButtonElement;
 	addressInput: HTMLInputElement;
+	errorsElement: HTMLElement;
 
-	constructor(appState: IAppState) {
-		super(
-			cloneTemplate(ensureElement<HTMLTemplateElement>('#order')),
-			appState
-		);
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
 
 		this.cashButton = ensureElement<HTMLButtonElement>(
 			'button[name=cash]',
@@ -30,44 +28,57 @@ export class OrderFormComponent extends Component {
 			'input[name=address]',
 			this.element
 		);
+		this.errorsElement = ensureElement<HTMLElement>(
+			'.form__errors',
+			this.element
+		);
 
-		this.addressInput.addEventListener('input', () => {
-			this.appState.order.updateField('address', this.addressInput.value);
+		this.addressInput.addEventListener('input', (e) => {
+			this.eventEmitter.emit('order-field:input', {
+				field: 'address',
+				value: (e.target as HTMLInputElement).value,
+			});
 		});
 		this.cardButton.addEventListener('click', () => {
-			this.appState.order.updateField('payment', 'card');
+			this.eventEmitter.emit('order-field:input', {
+				field: 'payment',
+				value: 'card',
+			});
 		});
 		this.cashButton.addEventListener('click', () => {
-			this.appState.order.updateField('payment', 'cash');
+			this.eventEmitter.emit('order-field:input', {
+				field: 'payment',
+				value: 'cash',
+			});
 		});
 		this.submitButton.addEventListener('click', (e) => {
 			e.preventDefault();
-			this.appState.openContactsForm();
+			this.eventEmitter.emit('open-contacts-form');
 		});
-		this.appState.order.eventEmitter.on('updated', () => {
-			this.update();
-		});
-		this.update();
 	}
 
-	update() {
-		this.addressInput.value = this.appState.order.value.address;
-		if (this.appState.order.value.payment === 'cash') {
+	updatePayment(value: string) {
+		if (value === 'cash') {
 			this.cashButton.classList.add('button_alt-active');
 		} else {
 			this.cashButton.classList.remove('button_alt-active');
 		}
 
-		if (this.appState.order.value.payment === 'card') {
+		if (value === 'card') {
 			this.cardButton.classList.add('button_alt-active');
 		} else {
 			this.cardButton.classList.remove('button_alt-active');
 		}
-
-		if (this.appState.order.validateOrder()) {
-			this.submitButton.disabled = false;
-		} else {
-			this.submitButton.disabled = true;
-		}
+	}
+	updateAddress(value: string) {
+		this.addressInput.value = value;
+	}
+	updateSubmitButtonState({ disabled }: { disabled: boolean }) {
+		this.submitButton.disabled = disabled;
+	}
+	updateErrors(errors: string[]) {
+		this.errorsElement.innerHTML = errors
+			.map((error) => `<p>${error}</p>`)
+			.join('');
 	}
 }

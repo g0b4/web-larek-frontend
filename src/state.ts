@@ -1,4 +1,4 @@
-import { AppState } from './components/AppState';
+// import { AppPresenter } from './components/AppState';
 
-const state = new AppState();
-export { state };
+// const state = new AppPresenter();
+// export { state };

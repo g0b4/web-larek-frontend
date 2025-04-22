@@ -1,43 +1,32 @@
-import { IAppState } from '../../types/IAppState';
 import { IProductItem } from '../../types';
-import { categoryClassMap } from '../../utils/categoryClassMap';
-import { resolveImageUrl } from '../../utils/resolveImageUrl';
-import { cloneTemplate, ensureElement, bem } from '../../utils/utils';
+import { IEventEmitter } from '../../types/IEventEmitter';
+import {
+	ensureElement,
+	getElementData,
+	setElementData,
+} from '../../utils/utils';
 import { Component } from './Component';
 
 export abstract class ProductCard extends Component {
 	protected titleElement: HTMLElement;
-	protected imageElement?: HTMLImageElement;
 	protected priceElement: HTMLElement;
-	protected categoryTitleElement: HTMLElement;
-	protected value: IProductItem | null;
 
-	constructor(
-		template: HTMLTemplateElement,
-		appState: IAppState,
-		value: IProductItem
-	) {
-		super(cloneTemplate(template), appState);
-		this.value = value;
+	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
+		super(element, eventEmitter);
 		this.titleElement = ensureElement('.card__title', this.element);
-		this.imageElement = ensureElement<HTMLImageElement>(
-			'.card__image',
-			this.element
-		);
 		this.priceElement = ensureElement('.card__price', this.element);
-		this.categoryTitleElement = ensureElement('.card__category', this.element);
 	}
 
-	update() {
-		if (!this.value) return;
-		this.titleElement.textContent = this.value.title;
-		this.imageElement.src = resolveImageUrl(this.value.image);
+	update(value: IProductItem) {
+		setElementData(this.element, { id: value.id });
+		this.titleElement.textContent = value.title;
 		this.priceElement.textContent =
-			Intl.NumberFormat('ru-RU').format(this.value.price) + ' синапсов';
+			Intl.NumberFormat('ru-RU').format(value.price) + ' синапсов';
+	}
 
-		this.categoryTitleElement.textContent = this.value.category;
-		this.categoryTitleElement.classList.add(
-			bem('card', 'category', categoryClassMap[this.value.category]).name
-		);
+	get id() {
+		return getElementData<{ id: string }>(this.element, {
+			id: (value: string) => value,
+		}).id;
 	}
 }
