@@ -18,7 +18,7 @@ export class ProductPreviewCard extends ProductWithImageCard {
 			this.element
 		);
 		this.cardButton.addEventListener('click', () => {
-			this.eventEmitter.emit('select-product');
+			this.eventEmitter.emit('toggle-active-product');
 		});
 	}
 

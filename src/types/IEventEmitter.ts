@@ -16,7 +16,7 @@ export type EmitterEvent = {
 	'order-errors-updated': null;
 	'product-list-updated': null;
 	'remove-from-cart': { id: string };
-	'select-product': null;
+	'toggle-active-product': null;
 	'submit:contacts': null;
 } & { [K in `order-updated:${keyof IOrder}`]: { value: unknown } };
 

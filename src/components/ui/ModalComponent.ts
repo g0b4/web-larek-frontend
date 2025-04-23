@@ -25,39 +25,10 @@ export class ModalComponent extends Component {
 				this.onCloseClick();
 			}
 		});
-
-		// this.appState.eventEmitter.on('current-product-updated', () => {
-		// 	if (this.appState.currentProduct) {
-		// 		this.render(
-		// 			new ProductPreviewCard(this.appState, this.appState.currentProduct)
-		// 		);
-		// 	} else {
-		// 		this.clear();
-		// 		this.close();
-		// 	}
-		// });
-
-		// this.appState.eventEmitter.on('open-basket', () => {
-		// 	this.render(basketComponent);
-		// });
-
-		// this.appState.eventEmitter.on('open-order-form', () => {
-		// 	this.render(orderFormComponent);
-		// });
-		// this.appState.eventEmitter.on('open-contacts-form', () => {
-		// 	this.render(contactsFormComponent);
-		// });
-
-		// this.appState.eventEmitter.on('open-success', () => {
-		// 	this.render(successComponent);
-		// });
-		// this.appState.eventEmitter.on('close-success', () => {
-		// 	this.onCloseClick();
-		// });
 	}
-	render(component: Component) {
+	render(element: HTMLElement) {
 		this.clear();
-		this.contentElement.append(component.getElement());
+		this.contentElement.append(element);
 		this.open();
 	}
 	onCloseClick() {
