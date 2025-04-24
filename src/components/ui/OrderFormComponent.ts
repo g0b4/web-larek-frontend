@@ -2,6 +2,9 @@ import { IEventEmitter } from '../../types/IEventEmitter';
 import { ensureElement } from '../../utils/utils';
 import { Component } from './Component';
 
+/**
+ * Компонент формы заказа
+ */
 export class OrderFormComponent extends Component {
 	cashButton: HTMLButtonElement;
 	cardButton: HTMLButtonElement;
@@ -9,6 +12,11 @@ export class OrderFormComponent extends Component {
 	addressInput: HTMLInputElement;
 	errorsElement: HTMLElement;
 
+	/**
+	 * Конструктор компонента формы заказа
+	 * @param element - HTML элемент
+	 * @param eventEmitter - объект для отправки событий
+	 */
 	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
 		super(element, eventEmitter);
 
@@ -57,6 +65,10 @@ export class OrderFormComponent extends Component {
 		});
 	}
 
+	/**
+	 * Обновляет способ оплаты
+	 * @param value - тип оплаты ('cash' или 'card')
+	 */
 	updatePayment(value: string) {
 		if (value === 'cash') {
 			this.cashButton.classList.add('button_alt-active');
@@ -70,15 +82,31 @@ export class OrderFormComponent extends Component {
 			this.cardButton.classList.remove('button_alt-active');
 		}
 	}
+
+	/**
+	 * Обновляет адрес
+	 * @param value - новый адрес
+	 */
 	updateAddress(value: string) {
 		this.addressInput.value = value;
 	}
+
+	/**
+	 * Обновляет состояние кнопки отправки
+	 * @param disabled - состояние кнопки (true - заблокирована, false - активна)
+	 */
 	updateSubmitButtonState({ disabled }: { disabled: boolean }) {
 		this.submitButton.disabled = disabled;
 	}
+
+	/**
+	 * Обновляет ошибки формы
+	 * @param errors - массив строк с ошибками
+	 */
 	updateErrors(errors: string[]) {
 		this.errorsElement.innerHTML = errors
 			.map((error) => `<p>${error}</p>`)
 			.join('');
 	}
 }
+

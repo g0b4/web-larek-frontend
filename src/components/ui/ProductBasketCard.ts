@@ -4,11 +4,27 @@ import { ensureElement } from '../../utils/utils';
 import { ProductCard } from './ProductCard';
 
 export class ProductBasketCard extends ProductCard {
+	/**
+	 * Элемент, содержащий индекс продукта в корзине
+	 */
 	protected indexElement: HTMLElement;
+	/**
+	 * Элемент, содержащий заголовок продукта
+	 */
 	protected titleElement: HTMLElement;
+	/**
+	 * Элемент, содержащий цену продукта
+	 */
 	protected priceElement: HTMLElement;
+	/**
+	 * Кнопка, удаляющая продукт из корзины
+	 */
 	protected removeButton: HTMLButtonElement;
 
+	/**
+	 * @param element - HTML-элемент, содержащий компонент
+	 * @param eventEmitter - эмиттер событий
+	 */
 	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
 		super(element, eventEmitter);
 
@@ -26,6 +42,11 @@ export class ProductBasketCard extends ProductCard {
 		});
 	}
 
+	/**
+	 * Обновляет информацию о продукте в корзине
+	 * @param value - обновленная информация о продукте
+	 * @param index - индекс продукта в корзине
+	 */
 	update(value: IProductItem, index?: number) {
 		super.update(value);
 		this.indexElement.textContent = String(index + 1);
