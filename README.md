@@ -126,42 +126,13 @@ export type IListResponse<T> = {
 ```
 ## Базовые и связующие блоки 
 
-### Базовый http-клиент
+### HttpClient
+Базовый http-клиент.Служит прослойкой для оформления запросов. Создает вариант `Api` с установленным baseUrl.
 
-Служит прослойкой для оформления запросов. Создает вариант `Api` с установленным baseUrl.
-
-```ts
-import { API_URL } from '../utils/constants';
-import { Api } from './base/api';
-
-/**
- * HttpClient - это класс, который помогает отправлять HTTP-запросы
- * @class
- * @extends Api
- */
-export class HttpClient extends Api {
-	/**
-	 * Создает экземпляр класса
-	 * @param {RequestInit} [options] - настройки запроса
-	 */
-	constructor(options: RequestInit = {}) {
-		super(API_URL, {
-			headers: {
-				'Content-Type': 'application/json',
-				...options.headers,
-			},
-		});
-	}
-}
-
-/**
- * httpClient - это готовый экземпляр класса, который можно использовать
- * для отправки запросов. Он настроен на работу с API
- * @type {HttpClient}
- */
-export const httpClient = new HttpClient();
-
-```
+#### getProducts
+Метод получения списка всех продуктов с сервера
+#### submitOrder
+Метод отправки заказа на сервер
 
 ### Базовый класс `EventEmitter`
 
@@ -170,44 +141,6 @@ export const httpClient = new HttpClient();
 Реализует интерфейс `IEvents`, содержащий методы on, emit и trigger.
 Для удобства в проекте используется интерфейс `IEventEmitter`, повторяющий `IEvents`, но содержащий фиксированный набор возможных событий в качестве типа аргумента `event`
 
-```ts
-
-// типизация названий событий для удобства
-export type EmitterEvent = {
-	'active-product-updated': null;
-	'close-modal': null;
-	'close-success': null;
-	'current-product-updated': null;
-	'open-basket': null;
-	'open-contacts-form': null;
-	'open-order-form': null;
-	'open-product': { id: string };
-	'open-success': null;
-	'order-field:input': { field: keyof IOrder; value: any };
-	'order-updated': null;
-	'order-errors-updated': null;
-	'product-list-updated': null;
-	'remove-from-cart': { id: string };
-	'toggle-active-product': null;
-	'submit:contacts': null;
-} & { [K in `order-updated:${keyof IOrder}`]: { value: unknown } };
-
-export interface IEventEmitter {
-	on<TEventKey extends keyof EmitterEvent>(
-		event: TEventKey,
-		callback: (data: EmitterEvent[TEventKey]) => void
-	): void;
-	emit<TEventKey extends keyof EmitterEvent>(
-		event: TEventKey,
-		data?: EmitterEvent[TEventKey]
-	): void;
-	trigger<T extends object>(
-		event: string,
-		context?: Partial<T>
-	): (data: T) => void;
-}
-
-```
 | Название события | Описание | Параметры |
 | --- | --- | --- |
 | `active-product-updated` | Событие обновления активного продукта | - |
@@ -235,40 +168,13 @@ export interface IEventEmitter {
 - Имеет абстрактный метод `reset()` для сброса состояния
 - Имеет метод `setValue(value: T)` для обновления текущего значения 
 
-```ts
-export abstract class AbstractModel<T> {
-	value: T;
-	eventEmitter: IEventEmitter;
-	abstract reset(): void;
-	setValue(value: T) {
-		this.value = value;
-	}
-	constructor(eventEmitter: IEventEmitter) {
-		this.eventEmitter = eventEmitter;
-		this.reset();
-	}
-}
 
-```
 ### Абстрактный класс `Component` 
 
 Абстрактный класс для создания конкретных `view`. Хранит html-элемент и эмиттер событий
 - В качестве параметра конструктора принимает `HTMLElement` и `IEventEmitter`. 
 - Имеет метод `getElement()` для отдачи html-элемента
 
-```ts
-export abstract class Component {
-	protected element: HTMLElement;
-	protected eventEmitter: IEventEmitter;
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		this.element = element;
-		this.eventEmitter = eventEmitter;
-	}
-	getElement() {
-		return this.element;
-	}
-}
-```
 
 
 ## Модели данных (Model)
@@ -278,1161 +184,183 @@ export abstract class Component {
 
 Служит для реализации модели заказа `IOrder`. Отвечает за все действия, связанные с конкретным объектом заказа. Отправляет наружу события, связанные с изменением заказа.
 
-```ts
-export class OrderModel extends AbstractModel<IOrder> {
-	/**
-	 * Текущий заказ
-	 *
-	 * @type {IOrder}
-	 */
-	value: IOrder;
+Имеет:
+* Поле `errors` для хранения ошибок
+* Метод `updateField` для обновления конкретного поля
+* Метод `validateOrder()` для валидации части заказа, связанной с оплатой
+* Метод `validateContacts()` для валидации части заказа, связанной с контактами
+* Метод `toOrderPayload()` для конвертации модели в формат передачи данных заказа по API
+* Метод `updateErrors()` для обновления списка ошибок
+* Метод `isInCart()` для проверки наличия товара в заказе
+* Метод `toggleProduct()` для добавления или удаления продукта из корзины
+* Геттер `total` для получения сумм заказа
 
-	/**
-	 * Ошибки при отправке заказа
-	 *
-	 * @type {string[]}
-	 */
-	errors: string[] = [];
-
-	/**
-	 * Создает экземпляр модели заказа
-	 *
-	 * @param {IEventEmitter} eventEmitter - диспетчер событий
-	 */
-	constructor(eventEmitter: IEventEmitter) {
-		super(eventEmitter);
-	}
-
-	/**
-	 * Сбрасывает заказ к изначальному состоянию
-	 */
-	reset() {
-		this.setValue({
-			payment: '',
-			address: '',
-			email: '',
-			phone: '',
-			items: [],
-		});
-		this.eventEmitter.emit('order-updated');
-		this.eventEmitter.emit('order-updated:items');
-	}
-
-	/**
-	 * Обновляет заказ
-	 *
-	 * @param {IOrder} value - новый заказ
-	 */
-	setValue(value: IOrder) {
-		this.value = value;
-		this.eventEmitter.emit('order-updated');
-	}
-
-	/**
-	 * Обновляет поле заказа
-	 *
-	 * @param {keyof IOrder} field - поле заказа
-	 * @param {IOrder[keyof IOrder]} value - новое значение поля
-	 */
-	updateField<K extends keyof IOrder>(field: K, value: IOrder[K]) {
-		Object.assign(this.value, { [field]: value });
-		this.eventEmitter.emit('order-updated');
-		this.eventEmitter.emit(('order-updated:' + field) as keyof EmitterEvent, {
-			value,
-		});
-	}
-
-	/**
-	 * Проверяет, является ли заказ валидным
-	 *
-	 * @returns {boolean} - true, если заказ валидный
-	 */
-	validateOrder(): boolean {
-		return this.value.payment && this.value.address?.length > 0;
-	}
-
-	/**
-	 * Проверяет, является ли контакт валидным
-	 *
-	 * @returns {boolean} - true, если контакт валидный
-	 */
-	validateContacts(): boolean {
-		return this.value.email?.length > 0 && this.value.phone?.length > 0;
-	}
-
-	/**
-	 * Преобразует заказ в формат, пригодный для отправки на сервер
-	 *
-	 * @returns {IOrderPayload} - заказ в формате, пригодном для отправки на сервер
-	 */
-	toOrderPayload(): IOrderPayload {
-		return {
-			...this.value,
-			items: this.value.items.map((item) => item.id),
-			total: this.total,
-		};
-	}
-
-	/**
-	 * Обновляет ошибки при отправке заказа
-	 *
-	 * @param {string[]} errors - ошибки при отправке заказа
-	 */
-	updateErrors(errors: string[]) {
-		this.errors = errors;
-		this.eventEmitter.emit('order-errors-updated');
-	}
-
-	/**
-	 * Проверяет, находится ли продукт в корзине
-	 *
-	 * @param {IProductItem} item - продукт
-	 * @returns {boolean} - true, если продукт находится в корзине
-	 */
-	isInCart(item: IProductItem) {
-		return this.value.items.some((product) => product.id === item.id);
-	}
-
-	/**
-	 * Добавляет/удаляет продукт из корзины
-	 *
-	 * @param {IProductItem} product - продукт
-	 */
-	toggleProduct(product: IProductItem) {
-		this.updateField(
-			'items',
-			this.isInCart(product)
-				? this.value.items.filter((product) => product.id !== product.id)
-				: [...this.value.items, product]
-		);
-	}
-
-	/**
-	 * Общая сумма заказа
-	 *
-	 * @type {number}
-	 */
-	get total() {
-		return this.value.items.reduce((acc, item) => acc + item.price, 0);
-	}
-}
-
-```
 
 ### Класс `ActiveProductModel`
 Служит для реализации модели текущего выбранного продукта `IProductItem | null`
 
-```ts
-export class ActiveProductModel extends AbstractModel<IProductItem | null> {
-	/**
-	 * Текущий активный продукт
-	 * @type {(IProductItem | null)}
-	 */
-	value: IProductItem | null;
-
-	constructor(eventEmitter: IEventEmitter) {
-		super(eventEmitter);
-	}
-
-	/**
-	 * Сбрасывает модель до изначального состояния
-	 */
-	reset() {
-		this.setValue(null);
-	}
-
-	/**
-	 * Обновляет модель
-	 * @param {IProductItem | null} value - новый активный продукт
-	 */
-	setValue(value: IProductItem | null) {
-		this.value = value;
-		this.eventEmitter.emit('active-product-updated');
-	}
-}
-```
+* Наследует `AbstractModel`, при обновлении данных эмитит событие `active-product-updated`
 
 ### Класс `ProductListModel`
 Служит для реализации модели списка доступных продуктов `IProductItem[]`
-
-```ts
-export class ProductListModel extends AbstractModel<IProductItem[]> {
-	/**
-	 * Список продуктов
-	 * @type {IProductItem[]}
-	 */
-	value: IProductItem[] = [];
-
-	/**
-	 * @param {IEventEmitter} eventEmitter - эмитер событий
-	 */
-	constructor(eventEmitter: IEventEmitter) {
-		super(eventEmitter);
-	}
-
-	/**
-	 * Обнуляет список продуктов
-	 */
-	reset() {
-		this.setValue([]);
-		this.eventEmitter.emit('product-list-updated');
-	}
-
-	/**
-	 * Обновляет список продуктов
-	 * @param {IProductItem[]} value - новый список продуктов
-	 */
-	setValue(value: IProductItem[]) {
-		this.value = value;
-		this.eventEmitter.emit('product-list-updated');
-	}
-}
-
-```
-## Презентер
-Главный
-### Класс `AppPresenter`
-Основной презентер приложения. Связывает логику моделей с view-компонентами посредством event-эмиттера. Инициируется при открытии страницы.
-```ts
-export class AppPresenter {
-	/**
-	 * @description EventEmitter для общения между компонентами
-	 */
-	eventEmitter: IEventEmitter = new EventEmitter();
-
-	/**
-	 * @description Модель заказа
-	 */
-	orderModel = new OrderModel(this.eventEmitter);
-
-	/**
-	 * @description Модель списка продуктов
-	 */
-	productListModel = new ProductListModel(this.eventEmitter);
-
-	/**
-	 * @description Модель активного продукта
-	 */
-	activeProductModel = new ActiveProductModel(this.eventEmitter);
-
-	/**
-	 * @description Шаблон карточки продукта
-	 */
-	cardCatalogTemplateElement =
-		ensureElement<HTMLTemplateElement>('#card-catalog');
-
-	/**
-	 * @description Шаблон карточки корзины
-	 */
-	cardBasketTemplateElement =
-		ensureElement<HTMLTemplateElement>('#card-basket');
-
-	/**
-	 * @description View страницы
-	 */
-	pageView = new PageComponent(document.body, this.eventEmitter);
-
-	/**
-	 * @description View модального окна
-	 */
-	modalView = new ModalComponent(
-		ensureElement('#modal-container'),
-		this.eventEmitter
-	);
-
-	/**
-	 * @description View галереи продуктов
-	 */
-	productGalleryView = new ProductGallery(
-		ensureElement('.gallery'),
-		this.eventEmitter
-	);
-
-	/**
-	 * @description View карточки продукта
-	 */
-	productPreviewView = new ProductPreviewCard(
-		cloneTemplate(ensureElement<HTMLTemplateElement>('#card-preview')),
-		this.eventEmitter
-	);
-
-	/**
-	 * @description View корзины
-	 */
-	basketView = new BasketComponent(
-		cloneTemplate(ensureElement<HTMLTemplateElement>('#basket')),
-		this.eventEmitter
-	);
-
-	/**
-	 * @description View формы заказа
-	 */
-	orderFormView = new OrderFormComponent(
-		cloneTemplate(ensureElement<HTMLTemplateElement>('#order')),
-		this.eventEmitter
-	);
-
-	/**
-	 * @description View формы контактов
-	 */
-	contactsFormView = new ContactsFormComponent(
-		cloneTemplate(ensureElement<HTMLTemplateElement>('#contacts')),
-		this.eventEmitter
-	);
-
-	/**
-	 * @description View блока результата
-	 */
-	succesView = new SuccessComponent(
-		cloneTemplate(ensureElement<HTMLTemplateElement>('#success')),
-		this.eventEmitter
-	);
-
-	constructor() {
-		/**
-		 * @description Получаем список продуктов
-		 */
-		getProducts()
-			.then((products) => {
-				this.productListModel.setValue(products.items);
-			})
-			.catch((error) => {
-				console.error(error);
-				alert('Ошибка при получении товаров');
-			});
-
-		/**
-		 * @description Слушаем обновление списка продуктов
-		 */
-		this.eventEmitter.on('product-list-updated', () => {
-			this.productGalleryView.updateContent(
-				this.productListModel.value.map((item) => {
-					const component = new ProductCatalogCard(
-						cloneTemplate(this.cardCatalogTemplateElement),
-						this.eventEmitter
-					);
-					component.update(item);
-					return component.getElement();
-				})
-			);
-		});
-
-		/**
-		 * @description Слушаем открытие продукта
-		 */
-		this.eventEmitter.on('open-product', ({ id }) => {
-			const item = this.productListModel.value.find((item) => item.id === id);
-			this.activeProductModel.setValue(item);
-		});
-
-		/**
-		 * @description Слушаем обновление активного продукта
-		 */
-		this.eventEmitter.on('active-product-updated', () => {
-			// когда активный продукт меняется, нужно обновить состояние карточки активного продукта
-			this.productPreviewView.update(
-				this.activeProductModel.value,
-				this.orderModel.isInCart(this.activeProductModel.value)
-			);
-			this.modalView.render(this.productPreviewView.getElement());
-		});
-
-		/**
-		 * @description Слушаем событие добавления продукта
-		 */
-		this.eventEmitter.on('toggle-active-product', () => {
-			this.orderModel.toggleProduct(this.activeProductModel.value);
-		});
-
-		/**
-		 * @description Слушаем обновление заказа
-		 */
-		this.eventEmitter.on('order-updated:items', () => {
-			this.pageView.updateCounter(this.orderModel.value.items.length);
-			this.productPreviewView.updateButtonText(
-				this.orderModel.isInCart(this.activeProductModel.value)
-			);
-			this.basketView.updateContent(
-				this.orderModel.value.items.map((item, index) => {
-					const component = new ProductBasketCard(
-						cloneTemplate(this.cardBasketTemplateElement),
-						this.eventEmitter
-					);
-					component.update(item, index);
-					return component.getElement();
-				})
-			);
-			this.basketView.updateTotal(this.orderModel.total);
-		});
-
-		/**
-		 * @description Слушаем открытие корзины
-		 */
-		this.eventEmitter.on('open-basket', () => {
-			this.modalView.render(this.basketView.getElement());
-		});
-
-		/**
-		 * @description Слушаем открытие формы заказа
-		 */
-		this.eventEmitter.on('open-order-form', () => {
-			this.modalView.render(this.orderFormView.getElement());
-		});
-
-		/**
-		 * @description Слушаем изменение поля формы заказа
-		 */
-		this.eventEmitter.on('order-field:input', ({ field, value }) => {
-			this.orderModel.updateField(field, value);
-		});
-
-		/**
-		 * @description Слушаем обновление заказа
-		 */
-		this.eventEmitter.on('order-updated', () => {
-			this.orderModel.updateErrors([]);
-		});
-
-		/**
-		 * @description Слушаем обновление способа оплаты
-		 */
-		this.eventEmitter.on(
-			'order-updated:payment',
-			({ value }: { value: string }) => {
-				this.orderFormView.updatePayment(value);
-				this.validateOrder();
-			}
-		);
-
-		/**
-		 * @description Слушаем обновление адреса
-		 */
-		this.eventEmitter.on('order-updated:address', () => {
-			this.validateOrder();
-		});
-
-		/**
-		 * @description Слушаем обновление email
-		 */
-		this.eventEmitter.on('order-updated:email', () => {
-			this.validateContacts();
-		});
-
-		/**
-		 * @description Слушаем обновление телефона
-		 */
-		this.eventEmitter.on('order-updated:phone', () => {
-			this.validateContacts();
-		});
-
-		/**
-		 * @description Слушаем событие удаления из корзины
-		 */
-		this.eventEmitter.on('remove-from-cart', ({ id }) => {
-			this.orderModel.updateField(
-				'items',
-				this.orderModel.value.items.filter((product) => product.id !== id)
-			);
-		});
-
-		/**
-		 * @description Слушаем открытие формы контактов
-		 */
-		this.eventEmitter.on('open-contacts-form', () => {
-			this.modalView.render(this.contactsFormView.getElement());
-		});
-
-		/**
-		 * @description Слушаем событие отправки контактов
-		 */
-		this.eventEmitter.on('submit:contacts', () => {
-			submitOrder(this.orderModel.toOrderPayload())
-				.then((response) => {
-					this.modalView.render(this.succesView.getElement());
-					this.succesView.updateTotal(response.total);
-					this.orderModel.reset();
-				})
-				.catch((error) => {
-					this.contactsFormView.updateErrors([error]);
-				});
-		});
-
-		/**
-		 * @description Слушаем событие закрытия блока результата
-		 */
-		this.eventEmitter.on('close-success', () => {
-			this.modalView.clear();
-			this.modalView.close();
-		});
-
-		/**
-		 * @description Слушаем обновление ошибок
-		 */
-		this.eventEmitter.on('order-errors-updated', () => {
-			this.contactsFormView.updateErrors(this.orderModel.errors);
-		});
-	}
-
-	/**
-	 * @description Валидация заказа
-	 */
-	validateOrder() {
-		if (this.orderModel.validateOrder()) {
-			this.orderFormView.updateSubmitButtonState({ disabled: false });
-		} else {
-			this.orderFormView.updateSubmitButtonState({ disabled: true });
-		}
-	}
-
-	/**
-	 * @description Валидация контактов
-	 */
-	validateContacts() {
-		if (this.orderModel.validateContacts()) {
-			this.contactsFormView.updateSubmitButtonState({ disabled: false });
-		} else {
-			this.contactsFormView.updateSubmitButtonState({ disabled: true });
-		}
-	}
-}
-
-
-```
-
+* Наследует `AbstractModel`, при обновлении данных эмитит событие `product-list-updated`
 
 
 ## Отображения (View)
-
+Все отображения наследуют абстрактный класс `Component`
 ### PageComponent
   Компонент страницы. Объединяет элементы модалки и кнопки корзины
 
-```ts
+Имеет:
+* Метод `updateCounter` для обновления счетчика корзины
 
-export class PageComponent extends Component {
-	/**
-	 * Элемент счетчика корзины
-	 *
-	 * @private
-	 * @type {HTMLElement}
-	 * @memberof PageComponent
-	 */
-	private cartCounterElement: HTMLElement;
-
-	/**
-	 * Кнопка корзины в хедере
-	 *
-	 * @private
-	 * @type {HTMLButtonElement}
-	 * @memberof PageComponent
-	 */
-	private headerBasketButton: HTMLButtonElement;
-
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
-
-		this.cartCounterElement = ensureElement(
-			'.header__basket-counter',
-			this.element
-		);
-		this.headerBasketButton = ensureElement<HTMLButtonElement>(
-			'.header__basket',
-			this.element
-		);
-		ensureAllElements('.modal', this.element).forEach((modal) => {
-			modal.classList.remove('modal_active');
-		});
-		this.headerBasketButton.addEventListener('click', () => {
-			this.eventEmitter.emit('open-basket');
-		});
-	}
-
-	/**
-	 * Обновляет счетчик корзины
-	 *
-	 * @param {number} value - Новое значение счетчика
-	 * @memberof PageComponent
-	 */
-	updateCounter(value: number) {
-		this.cartCounterElement.textContent = value.toString();
-	}
-}
-```
 
 ### BasketComponent
 
 
 Компонент отображения корзины
-```ts
-export class BasketComponent extends Component {
-	/**
-	 * Список продуктов в корзине
-	 */
-	protected listElement: HTMLElement;
-	/**
-	 * Общая сумма заказа
-	 */
-	protected totalPriceElement: HTMLElement;
-	/**
-	 * Кнопка "Оформить заказ"
-	 */
-	protected buttonElement: HTMLButtonElement;
 
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
+Имеет:
+* Метод `updateContent` для обновления списка продуктов
+* Метод `updateTotal` для обновления стоимости товаров
 
-		this.listElement = ensureElement('.basket__list', this.element);
-		this.totalPriceElement = ensureElement('.basket__price', this.element);
-		this.buttonElement = ensureElement<HTMLButtonElement>(
-			'.basket__button',
-			this.element
-		);
-		this.buttonElement.addEventListener('click', () => {
-			this.eventEmitter.emit('open-order-form');
-		});
-	}
-
-	/**
-	 * Обновляет список продуктов в корзине
-	 * @param elements - список elements
-	 */
-	updateContent(elements: HTMLElement[]) {
-		this.listElement.innerHTML = '';
-		this.listElement.append(...elements);
-	}
-
-	/**
-	 * Обновляет общую сумму заказа
-	 * @param value - сумма заказа
-	 */
-	updateTotal(value: number) {
-		this.totalPriceElement.textContent =
-			new Intl.NumberFormat('ru-RU').format(value) + ' синапсов';
-	}
-}
-```
 
 ### ProductCard
 
-Абстрактный класс для карточек продуктов
+Абстрактный класс для карточек продуктов. Используется как базовый класс для создания других карточек продуктов. 
 
-```ts
-export abstract class ProductCard extends Component {
-	/**
-	 * Элемент с заголовком продукта
-	 */
-	protected titleElement: HTMLElement;
+Имеет:
+* Поля `titleElement` и `priceElement` для обображения названия и стоимости продукта.
+* Метод `update` для установки значений из конкретного продукта
+* Геттер `id` для получения id продукта
 
-	/**
-	 * Элемент с ценой продукта
-	 */
-	protected priceElement: HTMLElement;
+ID продукта хранится в самом элементе в виде data-аттрибута
 
-	/**
-	 * @param element - HTML-элемент, содержащий компонент
-	 * @param eventEmitter - эмиттер событий
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
-		this.titleElement = ensureElement('.card__title', this.element);
-		this.priceElement = ensureElement('.card__price', this.element);
-	}
-
-	/**
-	 * Обновляет информацию о продукте
-	 * @param value - обновленная информация о продукте
-	 */
-	update(value: IProductItem) {
-		setElementData(this.element, { id: value.id });
-		this.titleElement.textContent = value.title;
-		this.priceElement.textContent =
-			Intl.NumberFormat('ru-RU').format(value.price) + ' синапсов';
-	}
-
-	/**
-	 * Возвращает ID продукта
-	 */
-	get id() {
-		return getElementData<{ id: string }>(this.element, {
-			id: (value: string) => value,
-		}).id;
-	}
-}
-```
 
 ### ProductWithImageCard
-Абстрактный класс для карточек, имеющих изображение товара
-```ts
-export abstract class ProductWithImageCard extends ProductCard {
-	/**
-	 * Элемент-картинка
-	 */
-	protected imageElement?: HTMLImageElement;
+Абстрактный класс для карточек, имеющих изображение товара. Наследуется от ProductCard и добавляет поля `imageElement` и `categoryTitleElement` для изображения и категории товара.
 
-	/**
-	 * Элемент заголовка категории
-	 */
-	protected categoryTitleElement: HTMLElement;
+Помимо этих полей, имеет:
+* Поле `categoryClassMap`, являющееся объектом, содержащим заголовок категории в качетсве ключа и часть css-селектора в качестве значения. Служит для составления правильного css-класса для каждой категории.
 
-	/**
-	 * Map, который переводит тип категории в CSS-класс
-	 */
-	protected categoryClassMap: Record<ProductItemCategory, string> = {
-		'софт-скил': 'soft',
-		другое: 'other',
-		дополнительное: 'additional',
-		кнопка: 'button',
-		'хард-скил': 'hard',
-	};
-
-	/**
-	 * @param element - HTML-элемент, содержащий компонент
-	 * @param eventEmitter - эмиттер событий
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
-		this.imageElement = ensureElement<HTMLImageElement>(
-			'.card__image',
-			this.element
-		);
-		this.categoryTitleElement = ensureElement('.card__category', this.element);
-		this.categoryTitleElement.classList.remove;
-	}
-
-	/**
-	 * Обновляет информацию о продукте
-	 * @param value - обновленная информация о продукте
-	 */
-	update(value: IProductItem) {
-		super.update(value);
-		setElementData(this.element, { id: value.id });
-		this.imageElement.src = resolveImageUrl(value.image);
-		this.categoryTitleElement.textContent = value.category;
-		this.categoryTitleElement.className = 'card__category';
-		this.categoryTitleElement.classList.add(
-			bem('card', 'category', this.categoryClassMap[value.category]).name
-		);
-	}
-}
-```
 
 ### ProductCatalogCard
-  Компонент карточки товара в каталоге.
+Компонент карточки товара в каталоге. Полностью наследует ProductWithImageCard.
 
-```ts
-export class ProductCatalogCard extends ProductWithImageCard {
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
+При нажатии на себя эмитит событие `open-product`
 
-		/**
-		 * Слушатель события клика на карточку.
-		 * @listens Event:open-product
-		 */
-		this.element.addEventListener('click', () => {
-			eventEmitter.emit('open-product', {
-				id: this.id,
-			});
-		});
-	}
-
-	/**
-	 * Обновляет информацию о продукте в карточке.
-	 * @param {IProductItem} value - обновленная информация о продукте
-	 */
-	update(value: IProductItem): void {
-		super.update(value);
-	}
-}
-
-```
 
 ### ProductPreviewCard
-Компонент карточки с подробностями товара и кнопкой добавления в корзину
-```ts
+Компонент карточки с подробностями товара и кнопкой добавления в корзину. Наследует ProductWithImageCard. 
 
-export class ProductPreviewCard extends ProductWithImageCard {
-	/**
-	 * Кнопка добавления в корзину или удаления из корзины
-	 */
-	protected cardButton: HTMLButtonElement;
-	/**
-	 * Элемент с текстом описания продукта
-	 */
-	protected cardTextElement: HTMLElement;
-	/**
-	 * Родительский контейнер, в котором будет отображаться модальное окно
-	 */
-	protected modalContainer: HTMLElement;
+При нажатии на кнопку эмитит событие `toggle-active-product`
 
-	/**
-	 * Конструктор компонента предпросмотра продукта
-	 * @param element - HTML-элемент, в котором будет отображаться компонент
-	 * @param eventEmitter - объект для отправки событий
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
-		this.modalContainer = ensureElement('#modal-container', document.body);
-		this.categoryTitleElement.classList.remove('card__category_other');
-		this.cardTextElement = ensureElement('.card__text', this.element);
-		this.cardButton = ensureElement<HTMLButtonElement>(
-			'.card__button',
-			this.element
-		);
-		this.cardButton.addEventListener('click', () => {
-			this.eventEmitter.emit('toggle-active-product');
-		});
-	}
+Имеет:
+* Поле `cardButton` — кнопка добавления в корзину или удаления из корзины.
+* Поле `cardTextElement` — элемент с текстом описания продукта
+* Поле `modalContainer` — родительский контейнер, в котором будет отображаться модальное окно
+* Метод `updateButtonText()`. Принимает значение `isInCart: boolean`, в зависимости от которого подставляет нужный текст в кнопку
 
-	/**
-	 * Обновляет данные компонента
-	 * @param value - данные продукта
-	 * @param isInCart - флаг, является ли продукт в корзине
-	 */
-	update(value: IProductItem, isInCart?: boolean) {
-		super.update(value);
-		this.cardTextElement.textContent = value.description;
-		this.updateButtonText(isInCart);
-	}
 
-	/**
-	 * Обновляет текст кнопки добавления в корзину/удаления из корзины
-	 * @param isInCart - флаг, является ли продукт в корзине
-	 */
-	updateButtonText(isInCart: boolean) {
-		this.cardButton.textContent = isInCart
-			? 'Удалить из корзины'
-			: 'Добавить в корзину';
-	}
-}
-```
 ### ProductBasketCard
-Компонент карточки товара в корзине
-```ts
-export class ProductBasketCard extends ProductCard {
-	/**
-	 * Элемент, содержащий индекс продукта в корзине
-	 */
-	protected indexElement: HTMLElement;
-	/**
-	 * Элемент, содержащий заголовок продукта
-	 */
-	protected titleElement: HTMLElement;
-	/**
-	 * Элемент, содержащий цену продукта
-	 */
-	protected priceElement: HTMLElement;
-	/**
-	 * Кнопка, удаляющая продукт из корзины
-	 */
-	protected removeButton: HTMLButtonElement;
+Компонент карточки товара в корзине. Наследует ProductCard
 
-	/**
-	 * @param element - HTML-элемент, содержащий компонент
-	 * @param eventEmitter - эмиттер событий
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
+По нажатию на кнопку удаления эмитит событие `remove-from-cart`
 
-		this.indexElement = ensureElement('.basket__item-index', this.element);
-		this.titleElement = ensureElement('.card__title', this.element);
-		this.priceElement = ensureElement('.card__price', this.element);
-		this.removeButton = ensureElement<HTMLButtonElement>(
-			'.card__button',
-			this.element
-		);
-		this.removeButton.addEventListener('click', () => {
-			this.eventEmitter.emit('remove-from-cart', {
-				id: this.id,
-			});
-		});
-	}
+Имеет:
+* Поле `indexElement` — элемент, содержащий индекс продукта в корзине
+* Поле `titleElement` — элемент, содержащий заголовок продукта
+* Поле `priceElement` — элемент, содержащий цену продукта
+* Поле `removeButton` — кнопка, удаляющая продукт из корзины
 
-	/**
-	 * Обновляет информацию о продукте в корзине
-	 * @param value - обновленная информация о продукте
-	 * @param index - индекс продукта в корзине
-	 */
-	update(value: IProductItem, index?: number) {
-		super.update(value);
-		this.indexElement.textContent = String(index + 1);
-		this.titleElement.textContent = value.title;
-		this.priceElement.textContent =
-			Intl.NumberFormat('ru-RU').format(value.price) + ' синапсов';
-	}
-}
-```
 ### ProductGallery
-  Компонент галереи доступных продуктов
-```ts
+  Компонент галереи доступных продуктов. 
 
-export class ProductGallery extends Component {
-	/**
-	 * Обновляет содержимое галереи
-	 *
-	 * @param {HTMLElement[]} list - Список элементов для отображения
-	 * @memberof ProductGallery
-	 */
-	updateContent(list: HTMLElement[]) {
-		this.element.innerHTML = '';
-		this.element.append(...list);
-	}
-}
-```
+  Имеет:
+  * Метод `updateContent(list: HTMLElement[])` — подставляет список html-элементов, служит для обновления списка продуктов
 
 ### OrderFormComponent
 
-Компонент формы заказа
-```ts
-export class OrderFormComponent extends Component {
-	cashButton: HTMLButtonElement;
-	cardButton: HTMLButtonElement;
-	submitButton: HTMLButtonElement;
-	addressInput: HTMLInputElement;
-	errorsElement: HTMLElement;
+Компонент формы заказа.
 
-	/**
-	 * Конструктор компонента формы заказа
-	 * @param element - HTML элемент
-	 * @param eventEmitter - объект для отправки событий
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
+Имеет:
+* Поле `cashButton` — кнопка-переключатель для режиме оплаты наличными
+* Поле `cardButton` —  кнопка-переключатель для режиме оплаты картой
+* Поле `submitButton` — кнопка отправки формы
+* Поле `addressInput` — поле ввода адреса
+* Поле `errorsElement` — элемент для хранения ошибок
+* Метод `updatePayment` — обновляет состояние переключателя спосоа оплаты
+* Метод `updateAddress` — обновляет значение адреса
+* Метод `updateErrors` — обновляет список ошибок
+* Метод `updateSubmitButtonState` — обновляет состояние кнопки отправки формы (делает ее доступной или недоступной для нажатия)
 
-		this.cashButton = ensureElement<HTMLButtonElement>(
-			'button[name=cash]',
-			this.element
-		);
-		this.cardButton = ensureElement<HTMLButtonElement>(
-			'button[name=card]',
-			this.element
-		);
-		this.submitButton = ensureElement<HTMLButtonElement>(
-			'.order__button',
-			this.element
-		);
-		this.addressInput = ensureElement<HTMLInputElement>(
-			'input[name=address]',
-			this.element
-		);
-		this.errorsElement = ensureElement<HTMLElement>(
-			'.form__errors',
-			this.element
-		);
-
-		this.addressInput.addEventListener('input', (e) => {
-			this.eventEmitter.emit('order-field:input', {
-				field: 'address',
-				value: (e.target as HTMLInputElement).value,
-			});
-		});
-		this.cardButton.addEventListener('click', () => {
-			this.eventEmitter.emit('order-field:input', {
-				field: 'payment',
-				value: 'card',
-			});
-		});
-		this.cashButton.addEventListener('click', () => {
-			this.eventEmitter.emit('order-field:input', {
-				field: 'payment',
-				value: 'cash',
-			});
-		});
-		this.submitButton.addEventListener('click', (e) => {
-			e.preventDefault();
-			this.eventEmitter.emit('open-contacts-form');
-		});
-	}
-
-	/**
-	 * Обновляет способ оплаты
-	 * @param value - тип оплаты ('cash' или 'card')
-	 */
-	updatePayment(value: string) {
-		if (value === 'cash') {
-			this.cashButton.classList.add('button_alt-active');
-		} else {
-			this.cashButton.classList.remove('button_alt-active');
-		}
-
-		if (value === 'card') {
-			this.cardButton.classList.add('button_alt-active');
-		} else {
-			this.cardButton.classList.remove('button_alt-active');
-		}
-	}
-
-	/**
-	 * Обновляет адрес
-	 * @param value - новый адрес
-	 */
-	updateAddress(value: string) {
-		this.addressInput.value = value;
-	}
-
-	/**
-	 * Обновляет состояние кнопки отправки
-	 * @param disabled - состояние кнопки (true - заблокирована, false - активна)
-	 */
-	updateSubmitButtonState({ disabled }: { disabled: boolean }) {
-		this.submitButton.disabled = disabled;
-	}
-
-	/**
-	 * Обновляет ошибки формы
-	 * @param errors - массив строк с ошибками
-	 */
-	updateErrors(errors: string[]) {
-		this.errorsElement.innerHTML = errors
-			.map((error) => `<p>${error}</p>`)
-			.join('');
-	}
-}
-
-```
 ### ContactsFormComponent
  Компонент формы контактов
+
+ Имеет:
+* Поле `submitButton` — кнопка отправки формы
+* Поле `emailInput` — Поле ввода эл. почты
+* Поле `phoneInput` — Поле ввода телефона
+* Поле `errorsElement` — элемент для хранения ошибок
+* Метод `updatePhone` — обновляет значение поля ввода телефона
+* Метод `updateEmail` — обновляет значение поля ввода эл. почты
+* Метод `updateSubmitButtonState` — обновляет состояние кнопки отправки формы (делает ее доступной или недоступной для нажатия)
+* Метод `updateErrors` — обновляет список ошибок
  
- ```ts
-export class ContactsFormComponent extends Component {
-	/**
-	 * Кнопка отправки формы
-	 * @type {HTMLButtonElement}
-	 */
-	submitButton: HTMLButtonElement;
-	/**
-	 * Поле ввода email
-	 * @type {HTMLInputElement}
-	 */
-	emailInput: HTMLInputElement;
-	/**
-	 * Поле ввода телефона
-	 * @type {HTMLInputElement}
-	 */
-	phoneInput: HTMLInputElement;
-	/**
-	 * Элемент, содержащий ошибки валидации
-	 * @type {HTMLElement}
-	 */
-	errorsElement: HTMLElement;
-
-	/**
-	 * Creates an instance of ContactsFormComponent.
-	 * @param {HTMLElement} element - Элемент, содержащий форму
-	 * @param {IEventEmitter} eventEmitter - Эмиттер событий
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
-
-		this.submitButton = ensureElement<HTMLButtonElement>(
-			'button[type="submit"]',
-			this.element
-		);
-		this.emailInput = ensureElement<HTMLInputElement>(
-			'input[name="email"]',
-			this.element
-		);
-		this.phoneInput = ensureElement<HTMLInputElement>(
-			'input[name="phone"]',
-			this.element
-		);
-
-		this.emailInput.addEventListener('input', (e) => {
-			this.eventEmitter.emit('order-field:input', {
-				field: 'email',
-				value: (e.target as HTMLInputElement).value,
-			});
-		});
-		this.phoneInput.addEventListener('input', (e) => {
-			this.eventEmitter.emit('order-field:input', {
-				field: 'phone',
-				value: (e.target as HTMLInputElement).value,
-			});
-		});
-
-		this.errorsElement = ensureElement<HTMLElement>(
-			'.form__errors',
-			this.element
-		);
-
-		this.submitButton.addEventListener('click', (e) => {
-			e.preventDefault();
-			this.eventEmitter.emit('submit:contacts');
-		});
-	}
-
-	/**
-	 * Обновляет значение поля телефона
-	 * @param {string} value - Новое значение поля телефона
-	 */
-	updatePhone(value: string) {
-		this.emailInput.value = value;
-	}
-	/**
-	 * Обновляет значение поля email
-	 * @param {string} value - Новое значение поля email
-	 */
-	updateEmail(value: string) {
-		this.phoneInput.value = value;
-	}
-	/**
-	 * Обновляет состояние кнопки отправки формы
-	 * @param {{ disabled: boolean }} - Объект с состоянием кнопки
-	 */
-	updateSubmitButtonState({ disabled }: { disabled: boolean }) {
-		this.submitButton.disabled = disabled;
-	}
-	/**
-	 * Обновляет ошибки валидации
-	 * @param {string[]} errors - Массив ошибок валидации
-	 */
-	updateErrors(errors: string[]) {
-		this.errorsElement.innerHTML = errors
-			.map((error) => `<p>${error}</p>`)
-			.join('');
-	}
-}
-```
 
 ### SuccessComponent
 Компонент окна-уведомления об успешной отправке заказа
-```ts
-export class SuccessComponent extends Component {
-	/**
-	 * Элемент, содержащий описание заказа.
-	 * @protected
-	 */
-	protected descriptionElement: HTMLElement;
 
-	/**
-	 * Кнопка закрытия окна.
-	 * @protected
-	 */
-	protected closeButton: HTMLElement;
+Имеет:
+* Поле `descriptionElement` — описание результата 
+* Поле `closeButton` — кнопка закрытия
+* Метод `updateTotal` — обновляет описание заказа
 
-	/**
-	 * Создаёт экземпляр SuccessComponent.
-	 * @param element - HTML-элемент, содержащий компонент.
-	 * @param eventEmitter - эмиттер событий.
-	 */
-	constructor(element: HTMLElement, eventEmitter: IEventEmitter) {
-		super(element, eventEmitter);
 
-		this.descriptionElement = ensureElement(
-			'.order-success__description',
-			this.element
-		);
-		this.closeButton = ensureElement('.order-success__close', this.element);
-		this.closeButton.addEventListener('click', () => {
-			this.eventEmitter.emit('close-success');
-		});
-	}
+## Презентер
 
-	/**
-	 * Обновляет текстовое описание заказа.
-	 * @param value - общая сумма заказа.
-	 */
-	updateTotal(value: number) {
-		this.descriptionElement.textContent = `Списано ${value} синапсов`;
-	}
-}
+### Класс `AppPresenter`
+Основной презентер приложения. Связывает логику моделей с view-компонентами посредством event-эмиттера. Инициируется при открытии страницы.
 
-```
+Логика работы:
+1. При инициализации создается эмиттер событий
+2. Создаются представления и связываются с html-элементами. Создаются все модели данных. В модели и представления передается эмиттер.
+3. В эмиттере создаются слушатели, связывающие работу приложения:
+
+      
+      
+    - 3.1. При событии обновления списка продуктов, для каждого из объекта продукта создается компонент катологовой карточки. `ProductGallery` принимает список карточек в своем методе `update`
+      
+    - 3.2. При событии открытия продукта находится нужный продукт по id, затем модель текущего выбранного продукта принимает значение этого продукта. Модель эмитит событие о смене выбранного продукта.
+      
+    - 3.3. По событию о смене выбранного продукта компонент `ProductPreviewCard` обновляет свое значение на значение выбранного продукта и затем рендерится в компонент модального окна. 
+      
+    - 3.4. По событию переключения текущего продукта оно попадает в метод `toggleProduct` модели заказа. Модель эмитит события об обновлении своего списка продуктов.
+      
+    - 3.5. По событию обновлению списка продуктов в заказе обновляется компонент счетчика (через `updateCounter`), обновляется текст кнопки в карточке выбранного продукта(`updateButtonText`), обновляется содержимое корзины (`updateContent`) и счетчик стоимости внутри корзины (`updateTotal`).
+      
+    - 3.6. По событию открытия корзины в модальное окно рендерится элемент компонента корзины (`BasketComponent`)
+      
+    - (см. 3.1)
+      
+    - 3.8. По событию открытия формы оплаты в модальное окно рендерится элемент формы оплаты (`OrderFormComponent`)
+      
+    - 3.9. По обновлению любого из полей заказа обновляется соответствующее поле модели заказа. При этом, если это поле `payment` или `address`, происходит валидация формы заказа. Если это поле `email` или `phone`, происходит валидация формы контактов. Если это поле `payment`,  обновляется так же состояние переключателя способа оплаты в форме оплаты (`updatePayment`)
+      
+    - 3.9.1 При валидации происходит обновление состояние кнопки представления соответствующей формы.
+      
+    - 3.10. При изменении модели заказа очищается список ошибок.
+      
+    - 3.11. По событию открытия формы контактов в модальное окно рендерится элемент формы контактов (`ContactsFormComponent`)
+      
+    - 3.12. При событии отправки формы контактов вызывается `submitOrder` c текущей моделью заказа, переведенной в API-формат (`toOrderPayload`). 
+      
+        - При успешном ответе в модальное окно подставляется элемент окна об успешном заказе. В окно об успешном заказе подставляется значение суммы заказа (`updateTotal`) из ответа сервера. Состояние модели заказа сбрасывается.
+      
+        - В случае ошибки, в форму контактов подставляется ошибка с сервера.
+      
+    - 3.13. При закрытии окна об успешном заказе модальное окно очищается и закрывается.
+
+4. Вызывается метод getProducts и подставляет полученный список продуктов в модель списка продуктов. Модель при этом эмитит событие `product-list-updated`. В случае ошибки, выводится alert c сообщением об ошибке
+
+Таким образом, презентер инициирует все модели и представления, а затем создает связи взаимодействия между ними через общий эмиттер событий
